@@ -12,4 +12,3 @@ A data dictionary and final presentation are available in documentations secton.
 
 ##Result
 It was found that the sales vary greatly among the regions and countries like India,   China and United States bring the highest revenue.  Most of the customers preferred more mature movies rated PG-13, NC-17 or PG and the most popular genre was sports, followed by sci-fi and animation. Average rental duration was 5 days.
-
