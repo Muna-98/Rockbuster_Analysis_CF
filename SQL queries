@@ -1,0 +1,214 @@
+--Film categories by revenue
+SELECT SUM(A.amount) AS revenue	
+       , E.name AS film_category	
+	   ,COUNT(B.inventory_id) AS rental_count
+	   ,ROUND(AVG(F.rental_rate),2) AS avg_rental_rate
+FROM payment A	
+INNER JOIN rental B ON A.rental_id=B.rental_id	
+INNER JOIN inventory C ON B.inventory_id=C.inventory_id	
+INNER JOIN film_category D ON C.film_id=D.film_id	
+INNER JOIN category E ON D.category_id=E.category_id	
+INNER JOIN film F ON D.film_id=F.film_id	
+GROUP BY 2	
+ORDER BY 1 DESC;	
+
+
+--Film ratings by revenue
+SELECT SUM(A.amount) AS revenue	
+       ,D.rating	
+	   ,COUNT(B.rental_id)
+FROM payment A	
+INNER JOIN rental B ON A.rental_id=B.rental_id	
+INNER JOIN inventory C ON B.inventory_id=C.inventory_id	
+INNER JOIN film D ON C.film_id=D.film_id	
+GROUP BY 2	
+ORDER BY 1 DESC	
+
+
+--Films by ratings
+SELECT SUM(A.amount) AS revenue		
+       ,D.title		
+	     ,COUNT(B.rental_id) AS rental_count	
+	     ,F.name	
+	     ,D.rating	
+FROM payment A		
+INNER JOIN rental B ON A.rental_id=B.rental_id		
+INNER JOIN inventory C ON B.inventory_id=C.inventory_id		
+INNER JOIN film D ON C.film_id=D.film_id		
+INNER JOIN film_category E ON C.film_id=E.film_id		
+INNER JOIN category F ON E.category_id=F.category_id		
+GROUP BY 2,		
+         4,		
+		     5
+ORDER BY 1 DESC		
+
+
+--Actual rental duration
+SELECT AVG((return_date) - (rental_date)) AS Average	
+       ,MIN((return_date) - (rental_date)) AS Min	
+	   ,MAX((return_date) - (rental_date)) AS Max
+FROM rental	
+
+--Expected rental duration
+SELECT ROUND(AVG(rental_duration),0) AS Average	
+       ,MIN(rental_duration) AS Min	
+	     ,MAX(rental_duration) AS Max
+FROM film 	
+
+
+--Rentals which were not returned
+SELECT rental_id
+       ,return_date
+FROM rental
+WHERE return_date IS null
+
+
+--Films by rental count
+SELECT A.title	
+       ,COUNT(C.inventory_id) AS rental_count	
+	     ,E.name AS category
+FROM film A	
+LEFT JOIN inventory B ON A.film_id=B.film_id	
+LEFT JOIN rental C ON B.inventory_id=C.inventory_id	
+LEFT JOIN film_category D ON A.film_id=D.film_id	
+LEFT JOIN category E ON D.category_id=E.category_id	
+GROUP BY 1,3	
+ORDER BY 2 DESC	
+
+
+--Rentals without payment
+SELECT A.rental_id,		
+       B.payment_id,		
+	     D.title,	
+	     A.rental_date,	
+	     A.return_date	
+FROM rental A		
+LEFT JOIN payment B ON A.rental_id=B.rental_id		
+LEFT JOIN inventory C ON A.inventory_id=C.inventory_id		
+LEFT JOIN film D ON C.film_id=D.film_id		
+WHERE B.payment_id IS NULL 		
+
+
+--Late returns and their payments
+WITH late_returns_cte(late_returns, principal_payment, additional_payment) AS	
+(SELECT DISTINCT A.rental_id 	
+	   ,C.rental_rate 
+	   ,D.amount-C.rental_rate 
+FROM rental A	
+INNER JOIN inventory B ON A.inventory_id=B.inventory_id	
+INNER JOIN film C ON B.film_id=C.film_id	
+INNER JOIN payment D ON A.rental_id=D.rental_id	
+WHERE EXTRACT(DAYS FROM(A.return_date-A.rental_date))+1>C.rental_duration)	
+SELECT SUM(A.amount) AS total_revenue	
+       ,SUM(D.rental_rate) AS total_rental_rate	
+	     ,SUM(late_returns_cte.additional_payment) AS additional_payment
+	     ,COUNT(late_returns_cte.late_returns) AS late_returns
+FROM payment A	
+INNER JOIN rental B ON A.rental_id=B.rental_id	
+INNER JOIN inventory C ON B.inventory_id=C.inventory_id	
+INNER JOIN film D ON C.film_id=D.film_id	
+LEFT JOIN late_returns_cte ON A.rental_id=late_returns_cte.late_returns	
+
+
+--Customer and rental count by country
+SELECT D.country		
+	   ,COUNT(DISTINCT A.customer_id) AS customer_count	
+	   ,COUNT(E.rental_id) AS rental_count	
+	   ,SUM(F.amount) AS revenue	
+FROM customer A		
+LEFT JOIN address B ON A.address_id=B.address_id		
+INNER JOIN city C ON B.city_id=C.city_id		
+INNER JOIN country D ON C.country_id=D.country_id		
+INNER JOIN rental E ON A.customer_id=E.customer_id		
+INNER JOIN payment F ON E.rental_id=F.rental_id		
+GROUP BY 1		
+ORDER BY 2 DESC		
+
+
+--Top 5 customers in top 10 cities of top 10 countries
+WITH top_city_cte(city,country,customer_count) AS			
+(SELECT A.city			
+       ,D.country			
+	   ,COUNT(C.customer_id) AS customer_count		
+FROM city A			
+INNER JOIN country D ON A.country_id=D.country_id			
+INNER JOIN address B ON A.city_id=B.city_id			
+INNER JOIN customer C ON B.address_id=C.address_id			
+WHERE D.country IN 			
+(SELECT country			
+ FROM (SELECT D.country			
+       ,COUNT(A.customer_id) AS customer_count			
+FROM customer A			
+INNER JOIN address B ON A.address_id=B.address_id			
+INNER JOIN city C ON B.city_id=C.city_id			
+INNER JOIN country D ON C.country_id=D.country_id			
+GROUP BY 1			
+ORDER BY 2 DESC			
+LIMIT 10) AS top_countries)			
+GROUP BY 1,2			
+ORDER BY 3 DESC			
+LIMIT 10)			
+SELECT C.first_name			
+       ,C.last_name			
+	   ,top_city_cte.country		
+	   ,top_city_cte.city		
+	   ,SUM(E.amount) AS revenue		
+	   ,COUNT(D.rental_id) AS rental_count		
+FROM top_city_cte			
+LEFT JOIN city A ON top_city_cte.city=A.city			
+LEFT JOIN address B ON A.city_id=B.city_id			
+LEFT JOIN customer C ON B.address_id=C.address_id			
+LEFT JOIN rental D ON C.customer_id=D.customer_id			
+LEFT JOIN payment E ON D.rental_id=E.rental_id			
+GROUP BY 1,2,3,4			
+ORDER BY 5 DESC			
+LIMIT 5			
+
+
+--Rentals without payment
+16044 rentals total	
+	
+SELECT B.rental_id,	
+       A.payment_id	
+FROM payment A	
+RIGHT JOIN rental B ON A.rental_id=B.rental_id	
+INNER JOIN customer C ON B.customer_id=C.customer_id	
+INNER JOIN address D ON C.address_id=D.address_id	
+INNER JOIN city E ON D.city_id=E.city_id	
+INNER JOIN country F ON E.country_id=F.country_id	
+WHERE A.payment_id IS NULL	
+
+
+--Count of customers and rentals without payment by country
+SELECT COUNT(B.rental_id) AS rental_count	
+	   ,COUNT( DISTINCT C.customer_id) AS customer_Count
+	   ,F.country
+FROM payment A	
+RIGHT JOIN rental B ON A.rental_id=B.rental_id	
+INNER JOIN customer C ON B.customer_id=C.customer_id	
+INNER JOIN address D ON C.address_id=D.address_id	
+INNER JOIN city E ON D.city_id=E.city_id	
+INNER JOIN country F ON E.country_id=F.country_id	
+WHERE A.payment_id IS NULL	
+GROUP BY 3	
+ORDER BY 1 DESC	
+
+
+--Rentals not returned
+WITH return_cte(title,amount,rental_id, actual_duration,rental_duration,rental_rate) AS							
+(SELECT D.title,							
+       A.amount,							
+       B.rental_id,							
+	   B.return_date-B.rental_date AS actual_return,						
+	   D.rental_duration,						
+	   D.rental_rate						
+FROM payment A							
+INNER JOIN rental B ON A.rental_id=B.rental_id							
+INNER JOIN inventory C ON B.inventory_id=C.inventory_id							
+INNER JOIN film D ON C.film_id=D.film_id							
+ORDER BY D.title)							
+SELECT COUNT(DISTINCT rental_id)							
+FROM return_cte							
+WHERE amount!=rental_rate							
+
+
