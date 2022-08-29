@@ -12,7 +12,7 @@ The dataset for this project is available [here](http://www.postgresqltutorial.c
 
 ## Additional resources
 The data dictionary and final presentation are available in documentations secton.
-
+Visualizations for final presentation unsing Tableu Public are available [here](https://public.tableau.com/app/profile/munavvar.makhkamova/viz/RockbusterDataAnalysis_16572218429680/Revenuebygenre).
 
 ## Results
 It was found that the sales vary greatly among the regions and countries like India,   China and United States bring the highest revenue.  Most of the customers preferred more mature movies rated PG-13, NC-17 or PG and the most popular genre was sports, followed by sci-fi and animation. Average rental duration was 5 days.
